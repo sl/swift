@@ -88,6 +88,10 @@ enum class FixKind : uint8_t {
   /// like the types are aligned.
   ContextualMismatch,
 
+  /// Fix up the generic arguments of a type so they match
+  /// those enforced by a conditional requirement.
+  GenericArgumentsMismatch,
+
   /// Fix up @autoclosure argument to the @autoclosure parameter,
   /// to for a call to be able to foward it properly, since
   /// @autoclosure conversions are unsupported starting from
@@ -472,6 +476,60 @@ public:
 
   static ContextualMismatch *create(ConstraintSystem &cs, Type lhs, Type rhs,
                                     ConstraintLocator *locator);
+};
+
+class GenericArgumentsMismatch : public ConstraintFix {
+  Type Actual;
+  Type Required;
+
+public:
+  /// A single mismatch between a generic argument in a
+  /// GenericArgumentsMismatch.
+  class Mismatch {
+    Type Actual;
+    Type Required;
+    int Position;
+    ConstraintLocator *Locator;
+
+  public:
+    Mismatch(Type actual, Type required, int position,
+             ConstraintLocator *locator)
+        : Actual(actual), Required(required), Position(position),
+          Locator(locator) {}
+
+    Type getActual() const { return Actual; }
+    Type getRequired() const { return Required; }
+
+    int getPosition() const { return Position; }
+
+    ConstraintLocator *getLocator() const { return Locator; }
+  };
+
+private:
+  llvm::SmallVector<Mismatch, 4> Mismatches;
+
+protected:
+  GenericArgumentsMismatch(ConstraintSystem &cs, Type actual, Type required,
+                           llvm::SmallVector<Mismatch, 4> mismatches,
+                           ConstraintLocator *locator)
+      : ConstraintFix(cs, FixKind::GenericArgumentsMismatch, locator),
+        Actual(actual), Required(required), Mismatches(mismatches) {}
+
+public:
+  std::string getName() const override {
+    return "fix generic argument mismatch";
+  }
+
+  Type getActual() const { return Actual; }
+  Type getRequired() const { return Required; }
+
+  llvm::SmallVector<Mismatch, 4> getMismatches() const { return Mismatches; }
+
+  bool diagnose(Expr *root, bool asNote = false) const override;
+
+  static GenericArgumentsMismatch *
+  create(ConstraintSystem &cs, Type actual, Type required,
+         llvm::SmallVector<Mismatch, 4> mismatches, ConstraintLocator *locator);
 };
 
 /// Detect situations where key path doesn't have capability required

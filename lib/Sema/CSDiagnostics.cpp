@@ -372,6 +372,24 @@ bool MissingConformanceFailure::diagnoseAsError() {
   return RequirementFailure::diagnoseAsError();
 }
 
+bool GenericArgumentsMismatchFailure::addNoteForMismatch(
+    GenericArgumentsMismatch::Mismatch mismatch) {
+  auto genericTypeDecl = getActual()->getCanonicalType()->getAnyGeneric();
+  auto param =
+      genericTypeDecl->getGenericParams()->getParams()[mismatch.getPosition()];
+  emitDiagnostic(param->getLoc(), diag::in_generic_argument_types,
+                 param->getName(), mismatch.getActual(),
+                 mismatch.getRequired());
+  return true;
+}
+
+bool GenericArgumentsMismatchFailure::diagnoseAsError() {
+  emitDiagnostic(getRawAnchor()->getLoc(), diag::types_not_convertible, false,
+                 getActual(), getRequired());
+  addNotesForMismatches();
+  return true;
+}
+
 bool LabelingFailure::diagnoseAsError() {
   auto &cs = getConstraintSystem();
   auto *anchor = getRawAnchor();

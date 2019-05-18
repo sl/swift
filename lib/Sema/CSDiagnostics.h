@@ -69,6 +69,8 @@ public:
   bool diagnose(bool asNote = false);
 
   /// Try to produce an error diagnostic for the problem at hand.
+  ///
+  /// \returns true If anything was diagnosed, false otherwise.
   virtual bool diagnoseAsError() = 0;
 
   /// Instead of producing an error diagnostic, attempt to
@@ -356,6 +358,51 @@ protected:
   DiagAsNote getDiagnosticAsNote() const override {
     return diag::candidate_types_conformance_requirement;
   }
+};
+
+/// Diagnostics for mismatched generic arguments e.g
+/// ```swift
+/// struct F<G> {}
+/// extension F where G == Int {
+///  func foo() {}
+/// }
+/// F<Bool>().foo()
+/// ```
+class GenericArgumentsMismatchFailure final : public FailureDiagnostic {
+  Type Actual;
+  Type Required;
+  llvm::SmallVector<GenericArgumentsMismatch::Mismatch, 4> Mismatches;
+
+public:
+  GenericArgumentsMismatchFailure(
+      Expr *expr, ConstraintSystem &cs, Type actual, Type required,
+      llvm::SmallVector<GenericArgumentsMismatch::Mismatch, 4> mismatches,
+      ConstraintLocator *locator)
+      : FailureDiagnostic(expr, cs, locator), Actual(actual),
+        Required(required), Mismatches(mismatches) {}
+
+  bool diagnoseAsError() override;
+
+private:
+  /// Add additional diagnostic notes for mismatched generic
+  /// arugments in the list of mismatches.
+  ///
+  /// \return true If any notes were attached.
+  bool addNotesForMismatches() {
+    bool result = false;
+    for (auto mismatch : Mismatches) {
+      result = result || addNoteForMismatch(mismatch);
+    }
+    return result;
+  }
+
+  bool addNoteForMismatch(GenericArgumentsMismatch::Mismatch mismatch);
+
+  /// The actual type being used.
+  Type getActual() const { return Actual; }
+
+  /// The type needed by the generic requirement.
+  Type getRequired() const { return Required; }
 };
 
 /// Diagnose failures related to same-type generic requirements, e.g.

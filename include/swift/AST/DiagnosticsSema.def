@@ -834,6 +834,9 @@ ERROR(types_not_convertible,none,
 NOTE(in_cast_expr_types,none,
       "in cast from type %0 to %1",
       (Type, Type))
+NOTE(in_generic_argument_types,none,
+     "where generic argument %0 = %1 to %2",
+     (Identifier, Type, Type))
 
 ERROR(types_not_convertible_use_bool_value,none,
       "%0 is not convertible to %1; did you mean %0.boolValue", (Type, Type))
