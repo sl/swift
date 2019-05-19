@@ -479,38 +479,14 @@ public:
 };
 
 class GenericArgumentsMismatch : public ConstraintFix {
-  Type Actual;
-  Type Required;
-
-public:
-  /// A single mismatch between a generic argument in a
-  /// GenericArgumentsMismatch.
-  class Mismatch {
-    Type Actual;
-    Type Required;
-    int Position;
-    ConstraintLocator *Locator;
-
-  public:
-    Mismatch(Type actual, Type required, int position,
-             ConstraintLocator *locator)
-        : Actual(actual), Required(required), Position(position),
-          Locator(locator) {}
-
-    Type getActual() const { return Actual; }
-    Type getRequired() const { return Required; }
-
-    int getPosition() const { return Position; }
-
-    ConstraintLocator *getLocator() const { return Locator; }
-  };
-
-private:
-  llvm::SmallVector<Mismatch, 4> Mismatches;
+  BoundGenericType *Actual;
+  BoundGenericType *Required;
+  llvm::SmallVector<int, 4> Mismatches;
 
 protected:
-  GenericArgumentsMismatch(ConstraintSystem &cs, Type actual, Type required,
-                           llvm::SmallVector<Mismatch, 4> mismatches,
+  GenericArgumentsMismatch(ConstraintSystem &cs, BoundGenericType *actual,
+                           BoundGenericType *required,
+                           llvm::SmallVector<int, 4> mismatches,
                            ConstraintLocator *locator)
       : ConstraintFix(cs, FixKind::GenericArgumentsMismatch, locator),
         Actual(actual), Required(required), Mismatches(mismatches) {}
@@ -520,16 +496,18 @@ public:
     return "fix generic argument mismatch";
   }
 
-  Type getActual() const { return Actual; }
-  Type getRequired() const { return Required; }
+  BoundGenericType *getActual() const { return Actual; }
+  BoundGenericType *getRequired() const { return Required; }
 
-  llvm::SmallVector<Mismatch, 4> getMismatches() const { return Mismatches; }
+  llvm::SmallVector<int, 4> getMismatches() const { return Mismatches; }
 
   bool diagnose(Expr *root, bool asNote = false) const override;
 
-  static GenericArgumentsMismatch *
-  create(ConstraintSystem &cs, Type actual, Type required,
-         llvm::SmallVector<Mismatch, 4> mismatches, ConstraintLocator *locator);
+  static GenericArgumentsMismatch *create(ConstraintSystem &cs,
+                                          BoundGenericType *actual,
+                                          BoundGenericType *required,
+                                          llvm::SmallVector<int, 4> mismatches,
+                                          ConstraintLocator *locator);
 };
 
 /// Detect situations where key path doesn't have capability required

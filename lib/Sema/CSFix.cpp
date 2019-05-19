@@ -236,8 +236,8 @@ bool GenericArgumentsMismatch::diagnose(Expr *root, bool asNote) const {
 }
 
 GenericArgumentsMismatch *GenericArgumentsMismatch::create(
-    ConstraintSystem &cs, Type actual, Type required,
-    llvm::SmallVector<Mismatch, 4> mismatches, ConstraintLocator *locator) {
+    ConstraintSystem &cs, BoundGenericType *actual, BoundGenericType *required,
+    llvm::SmallVector<int, 4> mismatches, ConstraintLocator *locator) {
   return new (cs.getAllocator())
       GenericArgumentsMismatch(cs, actual, required, mismatches, locator);
 }

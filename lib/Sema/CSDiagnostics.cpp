@@ -372,20 +372,21 @@ bool MissingConformanceFailure::diagnoseAsError() {
   return RequirementFailure::diagnoseAsError();
 }
 
-bool GenericArgumentsMismatchFailure::addNoteForMismatch(
-    GenericArgumentsMismatch::Mismatch mismatch) {
+bool GenericArgumentsMismatchFailure::addNoteForMismatch(int mismatchPosition) {
   auto genericTypeDecl = getActual()->getCanonicalType()->getAnyGeneric();
   auto param =
-      genericTypeDecl->getGenericParams()->getParams()[mismatch.getPosition()];
+      genericTypeDecl->getGenericParams()->getParams()[mismatchPosition];
+
+  auto lhs = resolveType(getActual()->getGenericArgs()[mismatchPosition]);
+  auto rhs = resolveType(getRequired()->getGenericArgs()[mismatchPosition]);
   emitDiagnostic(param->getLoc(), diag::in_generic_argument_types,
-                 param->getName(), mismatch.getActual(),
-                 mismatch.getRequired());
+                 param->getName(), lhs, rhs);
   return true;
 }
 
 bool GenericArgumentsMismatchFailure::diagnoseAsError() {
   emitDiagnostic(getRawAnchor()->getLoc(), diag::types_not_convertible, false,
-                 getActual(), getRequired());
+                 resolveType(getActual()), resolveType(getRequired()));
   addNotesForMismatches();
   return true;
 }

@@ -1581,24 +1581,24 @@ ConstraintSystem::matchSuperclassTypes(Type type1, Type type2,
 
 static ConstraintSystem::TypeMatchResult
 matchDeepTypeArguments(ConstraintSystem &cs,
-                       ConstraintSystem::TypeMatchOptions subflags, Type base1,
-                       Type base2, ArrayRef<Type> args1, ArrayRef<Type> args2,
-                       ConstraintLocatorBuilder locator) {
+                       ConstraintSystem::TypeMatchOptions subflags,
+                       bool matchingGenericArguments, BoundGenericType *base1,
+                       BoundGenericType *base2, ArrayRef<Type> args1,
+                       ArrayRef<Type> args2, ConstraintLocatorBuilder locator) {
   if (args1.size() != args2.size()) {
     return cs.getTypeMatchFailure(locator);
   }
 
-  llvm::SmallVector<GenericArgumentsMismatch::Mismatch, 4> fixes;
+  llvm::SmallVector<int, 4> fixes;
 
   for (unsigned i = 0, n = args1.size(); i != n; ++i) {
     auto result = cs.matchTypes(args1[i], args2[i], ConstraintKind::Bind,
                                 subflags, locator.withPathElement(
                                         LocatorPathElt::getGenericArgument(i)));
     if (result.isFailure()) {
-      fixes.push_back(GenericArgumentsMismatch::Mismatch(
-          args1[i], cs.simplifyType(args2[i]), /*position=*/i,
-          cs.getConstraintLocator(
-              locator.withPathElement(LocatorPathElt::getGenericArgument(i)))));
+      if (!matchingGenericArguments)
+        return result;
+      fixes.push_back(i);
     }
   }
 
@@ -1629,7 +1629,7 @@ ConstraintSystem::matchDeepEqualityTypes(Type type1, Type type2,
     auto args1 = opaque1->getSubstitutions().getReplacementTypes();
     auto args2 = opaque2->getSubstitutions().getReplacementTypes();
     // Match up the replacement types of the respective substitution maps.
-    return matchDeepTypeArguments(*this, subflags, type1, simplifyType(type2),
+    return matchDeepTypeArguments(*this, subflags, false, nullptr, nullptr,
                                   args1, args2, locator);
   }
   
@@ -1667,8 +1667,8 @@ ConstraintSystem::matchDeepEqualityTypes(Type type1, Type type2,
   // Match up the generic arguments, exactly.
   auto args1 = bound1->getGenericArgs();
   auto args2 = bound2->getGenericArgs();
-  return matchDeepTypeArguments(*this, subflags, type1, simplifyType(type2),
-                                args1, args2, locator);
+  return matchDeepTypeArguments(*this, subflags, true, bound1, bound2, args1,
+                                args2, locator);
 }
 
 ConstraintSystem::TypeMatchResult
@@ -2173,12 +2173,14 @@ bool ConstraintSystem::repairFailures(
       conversionsOrFixes.push_back(fix);
     break;
   }
+
   case ConstraintLocator::ClosureResult: {
     auto *fix = ContextualMismatch::create(*this, lhs, rhs,
                                            getConstraintLocator(locator));
     conversionsOrFixes.push_back(fix);
     break;
   }
+
   case ConstraintLocator::ContextualType: {
     auto purpose = getContextualTypePurpose();
     if (rhs->isVoid() &&
@@ -6629,11 +6631,13 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
 
     return result;
   }
+
   case FixKind::AutoClosureForwarding: {
     if (recordFix(fix))
       return SolutionKind::Error;
     return matchTypes(type1, type2, matchKind, subflags, locator);
   }
+
   case FixKind::InsertCall:
   case FixKind::RemoveReturn:
   case FixKind::AddConformance:
@@ -6644,6 +6648,7 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyFixConstraint(
   case FixKind::AddMissingArguments: {
     return recordFix(fix) ? SolutionKind::Error : SolutionKind::Solved;
   }
+
   case FixKind::UseSubscriptOperator:
   case FixKind::ExplicitlyEscaping:
   case FixKind::CoerceToCheckedCast:

@@ -369,15 +369,16 @@ protected:
 /// F<Bool>().foo()
 /// ```
 class GenericArgumentsMismatchFailure final : public FailureDiagnostic {
-  Type Actual;
-  Type Required;
-  llvm::SmallVector<GenericArgumentsMismatch::Mismatch, 4> Mismatches;
+  BoundGenericType *Actual;
+  BoundGenericType *Required;
+  llvm::SmallVector<int, 4> Mismatches;
 
 public:
-  GenericArgumentsMismatchFailure(
-      Expr *expr, ConstraintSystem &cs, Type actual, Type required,
-      llvm::SmallVector<GenericArgumentsMismatch::Mismatch, 4> mismatches,
-      ConstraintLocator *locator)
+  GenericArgumentsMismatchFailure(Expr *expr, ConstraintSystem &cs,
+                                  BoundGenericType *actual,
+                                  BoundGenericType *required,
+                                  llvm::SmallVector<int, 4> mismatches,
+                                  ConstraintLocator *locator)
       : FailureDiagnostic(expr, cs, locator), Actual(actual),
         Required(required), Mismatches(mismatches) {}
 
@@ -390,19 +391,19 @@ private:
   /// \return true If any notes were attached.
   bool addNotesForMismatches() {
     bool result = false;
-    for (auto mismatch : Mismatches) {
-      result = result || addNoteForMismatch(mismatch);
+    for (int mismatchPosition : Mismatches) {
+      result = result || addNoteForMismatch(mismatchPosition);
     }
     return result;
   }
 
-  bool addNoteForMismatch(GenericArgumentsMismatch::Mismatch mismatch);
+  bool addNoteForMismatch(int mismatchPosition);
 
   /// The actual type being used.
-  Type getActual() const { return Actual; }
+  BoundGenericType *getActual() const { return Actual; }
 
   /// The type needed by the generic requirement.
-  Type getRequired() const { return Required; }
+  BoundGenericType *getRequired() const { return Required; }
 };
 
 /// Diagnose failures related to same-type generic requirements, e.g.
