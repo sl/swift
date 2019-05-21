@@ -1579,6 +1579,35 @@ ConstraintSystem::matchSuperclassTypes(Type type1, Type type2,
   return getTypeMatchFailure(locator);
 }
 
+/// Records a possible fix for a generic arguments mismatch.
+///
+/// \returns true If a fix is recorded.
+static bool recordFixForGenericArgumentsMismatch(
+    ConstraintSystem &cs, BoundGenericType *base1, BoundGenericType *base2,
+    llvm::SmallVector<int, 4> fixes, ConstraintLocatorBuilder locator) {
+  if (fixes.empty())
+    return false;
+
+  // We only need to look at the first fix location as the different
+  // arguments shouldn't have differing purposes.
+  auto builder =
+      locator.withPathElement(LocatorPathElt::getGenericArgument(fixes[0]));
+  // This condition is wrong it's here as a placeholder.
+  // I'm trying to figure out what the best thing to use
+  // is here. Seems like i have to get the path from builder, then do something
+  // with the last path element, but I can't figure out what I can do that's
+  // particularly useful as LocatorPath::getGenericArgument(...) sets the kind
+  // to GenericArgument.
+  if (cs.getConstraintLocator(builder)->isForGenericParameter()) {
+    if (!cs.recordFix(GenericArgumentsMismatch::create(
+            cs, base1, base2, fixes, cs.getConstraintLocator(locator)))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 static ConstraintSystem::TypeMatchResult
 matchDeepTypeArguments(ConstraintSystem &cs,
                        ConstraintSystem::TypeMatchOptions subflags,
@@ -1590,24 +1619,26 @@ matchDeepTypeArguments(ConstraintSystem &cs,
   }
 
   llvm::SmallVector<int, 4> fixes;
+  ConstraintSystem::TypeMatchResult result = cs.getTypeMatchSuccess();
 
   for (unsigned i = 0, n = args1.size(); i != n; ++i) {
-    auto result = cs.matchTypes(args1[i], args2[i], ConstraintKind::Bind,
-                                subflags, locator.withPathElement(
-                                        LocatorPathElt::getGenericArgument(i)));
-    if (result.isFailure()) {
+    auto argumentResult = cs.matchTypes(
+        args1[i], args2[i], ConstraintKind::Bind, subflags,
+        locator.withPathElement(LocatorPathElt::getGenericArgument(i)));
+    if (argumentResult.isFailure()) {
       if (!matchingGenericArguments)
-        return result;
+        return argumentResult;
+
+      if (fixes.empty())
+        result = argumentResult;
       fixes.push_back(i);
     }
   }
 
-  if (!fixes.empty()) {
-    cs.recordFix(GenericArgumentsMismatch::create(
-        cs, base1, base2, fixes, cs.getConstraintLocator(locator)));
-  }
+  if (recordFixForGenericArgumentsMismatch(cs, base1, base2, fixes, locator))
+    return cs.getTypeMatchSuccess();
 
-  return cs.getTypeMatchSuccess();
+  return result;
 }
 
 ConstraintSystem::TypeMatchResult
