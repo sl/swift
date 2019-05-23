@@ -399,6 +399,9 @@ private:
 
   bool addNoteForMismatch(int mismatchPosition);
 
+  Optional<Diag<Type, Type>> getDiagnosticFor(ContextualTypePurpose context,
+                                              bool isCallArgument);
+
   /// The actual type being used.
   BoundGenericType *getActual() const { return Actual; }
 

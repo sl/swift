@@ -394,6 +394,13 @@ ERROR(cannot_convert_closure_result_protocol,none,
 ERROR(cannot_convert_closure_result_nil,none,
       "'nil' is not compatible with closure result type %0", (Type))
 
+ERROR(cannot_convert_generic_type,none,
+      "cannot convert generic type %0 to %1",
+      (Type, Type))
+NOTE(in_generic_argument_types,none,
+     "where generic argument %0 = %1 to %2",
+     (Identifier, Type, Type))
+
 ERROR(destructor_not_accessible,none,
       "deinitializers cannot be accessed", ())
 
@@ -834,9 +841,6 @@ ERROR(types_not_convertible,none,
 NOTE(in_cast_expr_types,none,
       "in cast from type %0 to %1",
       (Type, Type))
-NOTE(in_generic_argument_types,none,
-     "where generic argument %0 = %1 to %2",
-     (Identifier, Type, Type))
 
 ERROR(types_not_convertible_use_bool_value,none,
       "%0 is not convertible to %1; did you mean %0.boolValue", (Type, Type))

@@ -124,3 +124,16 @@ protocol Tail { associatedtype T }
 struct Dog<B, C : Tail> where C.T == B {}
 func foo<B, A>() -> Dog<B, Cat<A>> {}
 // expected-error@-1 {{type 'Cat<A>' does not conform to protocol 'Tail'}}
+
+struct Thing<Foo, Bar> {
+  func methodOnAllThings() {}
+}
+
+extension Thing where Foo == Bool {
+  func methodOnThingsWhereFooIsBool() {}
+}
+
+func foo(_ thing: Thing<Int, Double>) {
+  thing.methodOnThingsWhereFooIsBool() // expected-error {{cannot convert value of type 'Thing<Int, Double>' to expected argument type 'Thing<Bool, Double>'}}
+  // expected-note@-1 {{where generic argument 'Foo' = 'Int' to 'Bool'}}
+}

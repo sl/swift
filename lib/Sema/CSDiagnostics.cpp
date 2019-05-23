@@ -372,6 +372,41 @@ bool MissingConformanceFailure::diagnoseAsError() {
   return RequirementFailure::diagnoseAsError();
 }
 
+Optional<Diag<Type, Type>>
+GenericArgumentsMismatchFailure::getDiagnosticFor(ContextualTypePurpose context,
+                                                  bool isCallArgument) {
+  // TODO: Fill the rest of these out
+  switch (context) {
+  case CTP_Unused: {
+    if (isCallArgument) {
+      return diag::cannot_convert_argument_value;
+    }
+    return diag::cannot_convert_generic_type;
+  }
+  case CTP_Initialization:
+    return diag::cannot_convert_initializer_value;
+  case CTP_AssignSource:
+    return diag::cannot_convert_assign;
+  case CTP_ReturnStmt:
+  case CTP_ReturnSingleExpr:
+  case CTP_EnumCaseRawValue:
+  case CTP_DefaultParameter:
+  case CTP_YieldByValue:
+  case CTP_CallArgument:
+  case CTP_ClosureResult:
+  case CTP_ArrayElement:
+  case CTP_DictionaryKey:
+  case CTP_DictionaryValue:
+  case CTP_CoerceOperand:
+  case CTP_ThrowStmt:
+  case CTP_CannotFail:
+  case CTP_YieldByReference:
+  case CTP_CalleeResult:
+    break;
+  }
+  return None;
+}
+
 bool GenericArgumentsMismatchFailure::addNoteForMismatch(int mismatchPosition) {
   auto genericTypeDecl = getActual()->getCanonicalType()->getAnyGeneric();
   auto param =
@@ -379,14 +414,32 @@ bool GenericArgumentsMismatchFailure::addNoteForMismatch(int mismatchPosition) {
 
   auto lhs = resolveType(getActual()->getGenericArgs()[mismatchPosition]);
   auto rhs = resolveType(getRequired()->getGenericArgs()[mismatchPosition]);
+
   emitDiagnostic(param->getLoc(), diag::in_generic_argument_types,
                  param->getName(), lhs, rhs);
   return true;
 }
 
 bool GenericArgumentsMismatchFailure::diagnoseAsError() {
-  emitDiagnostic(getRawAnchor()->getLoc(), diag::types_not_convertible, false,
-                 resolveType(getActual()), resolveType(getRequired()));
+  auto isCallArgument = [this](Expr *expr) {
+    auto &cs = getConstraintSystem();
+    auto argExpr = cs.getParentExpr(expr);
+    if (!argExpr)
+      return false;
+    auto possibleApplyExpr = cs.getParentExpr(argExpr);
+    return possibleApplyExpr && isa<ApplyExpr>(possibleApplyExpr);
+  };
+
+  auto callArgument = isCallArgument(getAnchor());
+  auto diagnostic =
+      getDiagnosticFor(getConstraintSystem().getContextualTypePurpose(),
+                       isCallArgument(getAnchor()));
+
+  if (!diagnostic)
+    return false;
+
+  emitDiagnostic(getAnchor()->getLoc(), *diagnostic, resolveType(getActual()),
+                 resolveType(getRequired()));
   addNotesForMismatches();
   return true;
 }
